@@ -47,6 +47,11 @@ jobs:
           feature_schema_variables=$(cat .github/workflows/build-deploy-image/schemas_versions.yml)
           
           echo "Comparing project versions..."
+          echo "Master version string length: ${#master_version}"
+          echo "Feature version string length: ${#feature_version}"
+          declare -p master_version feature_version
+          
+          echo "Comparing project versions..."
           if [ "$master_version" == "$feature_version" ]; then
               echo "Project version is unchanged"
               VERSION_CHANGED=false
