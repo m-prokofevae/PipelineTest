@@ -1,0 +1,23 @@
+deploy-jar-if-schema-changed:
+  stage: deploy-jar
+  script:
+    - |
+      echo "Fetching schema-variables.yml from master branch..."
+      git fetch origin master
+      git show origin/master:.github/workflows/build-deploy-image/schemas_versions.yml > master_schema-variables.yml
+
+    - |
+      echo "Using schema-variables.yml from the current (merged) branch..."
+      cp .github/workflows/build-deploy-image/schemas_versions.yml feature_schema-variables.yml
+
+    - |
+      echo "Comparing schema files..."
+      if diff -q master_schema-variables.yml feature_schema-variables.yml > /dev/null; then
+          echo "No changes in schema-variables.yml"
+          DTO_CHANGED=false
+      else
+          echo "Changes detected in schema-variables.yml"
+          DTO_CHANGED=true
+      fi
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "master" && $CI_PIPELINE_SOURCE == "merge_request_event"'
