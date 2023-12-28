@@ -34,9 +34,13 @@ jobs:
           feature_version=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
           cp .github/workflows/build-deploy-image/schemas_versions.yml feature_schema-variables.yml
           
+          echo "$master_version"
+          echo "$feature_version"
+          
           echo "Comparing project versions..."
           if [ "$master_version" == "$feature_version" ]; then
               echo "Project version is unchanged"
+              
               VERSION_CHANGED=false
           else
               echo "Project version has changed"
