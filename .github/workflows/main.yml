@@ -29,11 +29,15 @@ jobs:
           git checkout origin/master -- pom.xml
           master_version=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
           echo "Master branch version: $master_version"
+          echo "Contents of master branch schema-variables.yml:"
+          cat .github/workflows/build-deploy-image/schemas_versions.yml
           git show origin/master:.github/workflows/build-deploy-image/schemas_versions.yml > master_schema-variables.yml
 
       - name: Compare Versions and Schemas
         run: |
           echo "Using project version and schema-variables.yml from the current (merged) branch..."
+          echo "Contents of master branch schema-variables.yml:"
+          cat .github/workflows/build-deploy-image/schemas_versions.yml
           feature_version=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
           cp .github/workflows/build-deploy-image/schemas_versions.yml feature_schema-variables.yml
           
@@ -74,9 +78,13 @@ jobs:
           echo "Fetching schema-variables.yml from master branch..."
           git fetch origin master
           git checkout origin/master -- .github/workflows/build-deploy-image/schemas_versions.yml
+          echo "Contents of master branch schema-variables.yml:"
+          cat .github/workflows/build-deploy-image/schemas_versions.yml
           master_schema_variables=$(cat .github/workflows/build-deploy-image/schemas_versions.yml)
 
           echo "Using schema-variables.yml from the current (merged) branch..."
+          echo "Contents of feature branch schema-variables.yml:"
+          cat .github/workflows/build-deploy-image/schemas_versions.yml
           feature_schema_variables=$(cat .github/workflows/build-deploy-image/schemas_versions.yml)
 
           echo "Comparing schema files..."
