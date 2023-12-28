@@ -25,17 +25,14 @@ jobs:
 
       - name: Compare Versions and Schemas
         run: |
-          echo "Fetching project version and schema-variables.yml from master branch..."
+          echo "Fetching project version from master branch..."
           git fetch origin master
           master_version=$(git show origin/master:pom.xml | mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
-          git show origin/master:.github/workflows/build-deploy-image/schemas_versions.yml > master_schema-variables.yml
-          
-          echo "Using project version and schema-variables.yml from the current (merged) branch..."
+          echo "Master branch version: $master_version"
+
+          echo "Using project version from the current (merged) branch..."
           feature_version=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
-          cp .github/workflows/build-deploy-image/schemas_versions.yml feature_schema-variables.yml
-          
-          echo "$master_version"
-          echo "$feature_version"
+          echo "Feature branch version: $feature_version"
           
           echo "Comparing project versions..."
           if [ "$master_version" == "$feature_version" ]; then
