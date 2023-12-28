@@ -16,6 +16,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v2
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
 
       - name: Setup Java
         uses: actions/setup-java@v2
@@ -25,19 +27,29 @@ jobs:
 
       - name: Fetch master branch and get version
         run: |
-          git fetch --no-tags --prune --depth=1 origin +refs/heads/master:refs/remotes/origin/master
-          git checkout origin/master -- pom.xml
+          echo "Master branch version from pom.xml:"
           master_version=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
           echo "Master branch version: $master_version"
-          git show origin/master:.github/workflows/build-deploy-image/schemas_versions.yml > master_schema-variables.yml
+          echo "Contents of master branch schema-variables.yml:"
+          cat .github/workflows/build-deploy-image/schemas_versions.yml
+          master_schema_variables=$(cat .github/workflows/build-deploy-image/schemas_versions.yml)
+
+      - name: Checkout merge commit
+        uses: actions/checkout@v2
 
       - name: Compare Versions and Schemas
         run: |
-          echo "Using project version and schema-variables.yml from the current (merged) branch..."
+          echo "Feature branch version from pom.xml:"
           feature_version=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
-          cp .github/workflows/build-deploy-image/schemas_versions.yml feature_schema-variables.yml
-          
           echo "Feature branch version: $feature_version"
+          echo "Contents of feature branch schema-variables.yml:"
+          cat .github/workflows/build-deploy-image/schemas_versions.yml
+          feature_schema_variables=$(cat .github/workflows/build-deploy-image/schemas_versions.yml)
+          
+          echo "Comparing project versions..."
+          echo "Master version string length: ${#master_version}"
+          echo "Feature version string length: ${#feature_version}"
+          declare -p master_version feature_version
           
           echo "Comparing project versions..."
           if [ "$master_version" == "$feature_version" ]; then
@@ -49,7 +61,7 @@ jobs:
           fi
           
           echo "Comparing schema files..."
-          if diff -q master_schema-variables.yml feature_schema-variables.yml > /dev/null; then
+          if diff -q <(echo "$master_schema_variables") <(echo "$feature_schema_variables") > /dev/null; then
               echo "No changes in schema-variables.yml"
               SCHEMA_CHANGED=false
           else
@@ -65,18 +77,24 @@ jobs:
   deploy-jar-if-schema-changed:
     runs-on: ubuntu-latest
     if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    needs: compare-versions-and-schemas
 
     steps:
       - uses: actions/checkout@v2
+        with:
+          ref: 'refs/heads/master'
 
       - name: Deploy JAR if Schema Changed
         run: |
-          echo "Fetching schema-variables.yml from master branch..."
-          git fetch origin master
-          git checkout origin/master -- .github/workflows/build-deploy-image/schemas_versions.yml
+          echo "Contents of master branch schema-variables.yml after merge:"
+          cat .github/workflows/build-deploy-image/schemas_versions.yml
           master_schema_variables=$(cat .github/workflows/build-deploy-image/schemas_versions.yml)
 
-          echo "Using schema-variables.yml from the current (merged) branch..."
+          echo "Checking out the merged commit SHA to get the feature branch version..."
+          git fetch origin ${{ github.sha }}
+          git checkout ${{ github.sha }} -- .github/workflows/build-deploy-image/schemas_versions.yml
+          echo "Contents of feature branch schema-variables.yml after merge:"
+          cat .github/workflows/build-deploy-image/schemas_versions.yml
           feature_schema_variables=$(cat .github/workflows/build-deploy-image/schemas_versions.yml)
 
           echo "Comparing schema files..."
@@ -90,6 +108,6 @@ jobs:
 
           if [ "$DTO_CHANGED" = true ]; then
               # Your logic for deploying the JAR
-              # Remember to replace this with actual commands to build and deploy your JAR file
               echo "Deploying JAR since schema has changed..."
+              # Remember to add the actual steps for building and deploying your JAR file
           fi
