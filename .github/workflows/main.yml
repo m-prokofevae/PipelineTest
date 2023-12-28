@@ -21,7 +21,7 @@ jobs:
         uses: actions/setup-java@v2
         with:
           distribution: 'temurin' # or another distribution of your choice
-          java-version: '11' # or the version you use
+          java-version: '17' # or the version you use
 
       - name: Compare Versions and Schemas
         run: |
