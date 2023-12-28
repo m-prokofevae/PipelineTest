@@ -74,20 +74,20 @@ jobs:
           echo "Fetching schema-variables.yml from master branch..."
           git fetch origin master
           git checkout origin/master -- .github/workflows/build-deploy-image/schemas_versions.yml
-          master_schema-variables.yml=$(cat .github/workflows/build-deploy-image/schemas_versions.yml)
-          
+          master_schema_variables=$(cat .github/workflows/build-deploy-image/schemas_versions.yml)
+
           echo "Using schema-variables.yml from the current (merged) branch..."
-          feature_schema-variables.yml=$(cat .github/workflows/build-deploy-image/schemas_versions.yml)
-          
+          feature_schema_variables=$(cat .github/workflows/build-deploy-image/schemas_versions.yml)
+
           echo "Comparing schema files..."
-          if [ "$master_schema-variables.yml" == "$feature_schema-variables.yml" ]; then
+          if diff -q <(echo "$master_schema_variables") <(echo "$feature_schema_variables") > /dev/null; then
               echo "No changes in schema-variables.yml"
               DTO_CHANGED=false
           else
               echo "Changes detected in schema-variables.yml"
               DTO_CHANGED=true
           fi
-          
+
           if [ "$DTO_CHANGED" = true ]; then
               # Your logic for deploying the JAR
               # Remember to replace this with actual commands to build and deploy your JAR file
