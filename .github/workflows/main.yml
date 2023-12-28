@@ -1,0 +1,84 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [ master ]
+  push:
+    branches: [ master ]
+
+env:
+  IMAGE_TAG: ${{ github.run_id }}
+
+jobs:
+  compare-versions-and-schemas:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Setup Java
+        uses: actions/setup-java@v2
+        with:
+          distribution: 'temurin' # or another distribution of your choice
+          java-version: '17' # or the version you use
+
+      - name: Compare Versions and Schemas
+        run: |
+          echo "Fetching project version and schema-variables.yml from master branch..."
+          git fetch origin master
+          master_version=$(git show origin/master:pom.xml | mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
+          git show origin/master:.github/workflows/build-deploy-image/schemas_versions.yml > master_schema-variables.yml
+          
+          echo "Using project version and schema-variables.yml from the current (merged) branch..."
+          feature_version=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
+          cp .github/workflows/build-deploy-image/schemas_versions.yml feature_schema-variables.yml
+          
+          echo "Comparing project versions..."
+          if [ "$master_version" == "$feature_version" ]; then
+              echo "Project version is unchanged"
+              VERSION_CHANGED=false
+          else
+              echo "Project version has changed"
+              VERSION_CHANGED=true
+          fi
+          
+          echo "Comparing schema files..."
+          if diff -q master_schema-variables.yml feature_schema-variables.yml > /dev/null; then
+              echo "No changes in schema-variables.yml"
+              SCHEMA_CHANGED=false
+          else
+              echo "Changes detected in schema-variables.yml"
+              SCHEMA_CHANGED=true
+          fi
+          
+          if [ "$SCHEMA_CHANGED" = true ] && [ "$VERSION_CHANGED" = false ]; then
+              echo "ERROR: Schema files are different but project version is unchanged. Please increment the project version before merging."
+              exit 1
+          fi
+
+  deploy-jar-if-schema-changed:
+    runs-on: ubuntu-latest
+    needs: compare-versions-and-schemas
+    if: github.ref == 'refs/heads/master' && github.event_name == 'pull_request'
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Deploy JAR if Schema Changed
+        run: |
+          echo "Fetching schema-variables.yml from master branch..."
+          git fetch origin master
+          git show origin/master:.github/workflows/build-deploy-image/schemas_versions.yml > master_schema-variables.yml
+          
+          echo "Using schema-variables.yml from the current (merged) branch..."
+          cp .github/workflows/build-deploy-image/schemas_versions.yml feature_schema-variables.yml
+          
+          echo "Comparing schema files..."
+          if diff -q master_schema-variables.yml feature_schema-variables.yml > /dev/null; then
+              echo "No changes in schema-variables.yml"
+              DTO_CHANGED=false
+          else
+              echo "Changes detected in schema-variables.yml"
+              DTO_CHANGED=true
+          fi
