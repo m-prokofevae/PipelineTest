@@ -20,29 +20,28 @@ jobs:
       - name: Setup Java
         uses: actions/setup-java@v2
         with:
-          distribution: 'temurin' # or another distribution of your choice
-          java-version: '17' # or the version you use
+          distribution: 'temurin'
+          java-version: '17'
 
-      - name: Compare Versions and Schemas
+      - name: Fetch master branch and get version
         run: |
-          echo "Fetching project version and schema-variables.yml from master branch..."
           git fetch --no-tags --prune --depth=1 origin +refs/heads/master:refs/remotes/origin/master
           git checkout origin/master -- pom.xml
           master_version=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
           echo "Master branch version: $master_version"
           git show origin/master:.github/workflows/build-deploy-image/schemas_versions.yml > master_schema-variables.yml
-          
+
+      - name: Compare Versions and Schemas
+        run: |
           echo "Using project version and schema-variables.yml from the current (merged) branch..."
           feature_version=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
           cp .github/workflows/build-deploy-image/schemas_versions.yml feature_schema-variables.yml
           
-          echo "$master_version"
-          echo "$feature_version"
+          echo "Feature branch version: $feature_version"
           
           echo "Comparing project versions..."
           if [ "$master_version" == "$feature_version" ]; then
               echo "Project version is unchanged"
-              
               VERSION_CHANGED=false
           else
               echo "Project version has changed"
@@ -66,7 +65,7 @@ jobs:
   deploy-jar-if-schema-changed:
     runs-on: ubuntu-latest
     needs: compare-versions-and-schemas
-    if: github.ref == 'refs/heads/master' && github.event_name == 'pull_request'
+    if: github.event_name == 'pull_request' && github.base_ref == 'master'
 
     steps:
       - uses: actions/checkout@v2
@@ -75,16 +74,23 @@ jobs:
         run: |
           echo "Fetching schema-variables.yml from master branch..."
           git fetch origin master
-          git show origin/master:.github/workflows/build-deploy-image/schemas_versions.yml > master_schema-variables.yml
+          git checkout origin/master -- .github/workflows/build-deploy-image/schemas_versions.yml
+          master_schema-variables.yml=$(cat .github/workflows/build-deploy-image/schemas_versions.yml)
           
           echo "Using schema-variables.yml from the current (merged) branch..."
-          cp .github/workflows/build-deploy-image/schemas_versions.yml feature_schema-variables.yml
+          feature_schema-variables.yml=$(cat .github/workflows/build-deploy-image/schemas_versions.yml)
           
           echo "Comparing schema files..."
-          if diff -q master_schema-variables.yml feature_schema-variables.yml > /dev/null; then
+          if [ "$master_schema-variables.yml" == "$feature_schema-variables.yml" ]; then
               echo "No changes in schema-variables.yml"
               DTO_CHANGED=false
           else
               echo "Changes detected in schema-variables.yml"
               DTO_CHANGED=true
+          fi
+          
+          if [ "$DTO_CHANGED" = true ]; then
+              # Your logic for deploying the JAR
+              # Remember to replace this with actual commands to build and deploy your JAR file
+              echo "Deploying JAR since schema has changed..."
           fi
